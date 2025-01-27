@@ -1,11 +1,11 @@
 ﻿using Earthdata;
 
-var earthdata = new EarthdataAccess();
-
 // Подключение к поисковому механизму LP DAAC
 
+var earthdata = new EarthdataAccess();
+
 // Вывод данных для Ставрополя на консоль
-earthdata.PrintData();
+await earthdata.PrintDataParallel();
 
 // Получение токена для аутентификации
 //string token = earthdata.GetBearerToken();

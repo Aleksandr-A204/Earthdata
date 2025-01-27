@@ -6,57 +6,53 @@ namespace Earthdata
 {
     public class EarthdataAccess
     {
-        private string url = "https://urs.earthdata.nasa.gov";
+        // private string url = "https://urs.earthdata.nasa.gov";
         private string username = "aleksandr_ponomarev";
         private string password = "F";
 
         public EarthdataAccess() { }
 
-        //Выводит данные гранул для заданного временного интервала и области
-        public void PrintData()
+        public async Task PrintDataParallel()
         {
-            var response = HttpResponse("https://cmr.earthdata.nasa.gov/search/granules.json?collection_concept_id=C2021957295-LPCLOUD&temporal[]=2024-07-23T00:00:00Z,2025-01-23T23:59:59Z&bounding_box[]=41.4146,42.618,44.5635,45.6569");
+            // Определяем ресурсы для 2023 и 2024 года
+            string tempolar2023 = "2023-01-01T00:00:00Z,2023-12-31T23:59:59Z";
+            string tempolar2024 = "2024-01-01T00:00:00Z,2024-12-31T23:59:59Z";
 
-            using (var stream = response.GetResponseStream())
-            using (var reader = new StreamReader(stream))
-            {
-                string responseText = reader.ReadToEnd();
+            // Запускаем загрузку данных одновременно для обоих годов
+            var task2023 = PrintDataAsync(tempolar2023);
+            var task2024 = PrintDataAsync(tempolar2024);
 
-                Console.WriteLine($"Response reveived. Length: {response.ContentLength}, Type: {response.ContentType}");
-
-                var jsonResponse = JObject.Parse(responseText);
-                Console.WriteLine($"Response data: {jsonResponse}"); // Отображение полученных данных в консоли
-            }
+            await Task.WhenAll(task2023, task2024);
         }
 
-        // Выполняет HTTP-запрос к указанному ресурсу и возвращает ответ
-        private HttpWebResponse HttpResponse(string? resource = null)
+        // Метод для загрузки данных гранул для заданного временного интервала
+        public async Task PrintDataAsync(string tempolar)
         {
+            string resource = $"https://cmr.earthdata.nasa.gov/search/granules.json?collection_concept_id=C2021957295-LPCLOUD&page_size=2000&temporal[]={tempolar}";
+
             try
             {
-                // Ideally the cookie container will be persisted to/from file
-                var myContainer = new CookieContainer();
-
-                // Create a credential cache for authenticating when redirected to Earthdata Login
-                var cache = new CredentialCache();
-                cache.Add(new Uri(url), "Basic", new NetworkCredential(username, password));
-
                 // Execute the request
                 var request = (HttpWebRequest)WebRequest.Create(resource);
                 request.Method = "GET";
-                request.Credentials = cache;
-                request.CookieContainer = myContainer;
-                request.PreAuthenticate = false;
-                request.AllowAutoRedirect = true;
 
-                return (HttpWebResponse)request.GetResponse();
+                var response = (HttpWebResponse)await request.GetResponseAsync();
+
+                using (var stream = response.GetResponseStream())
+                using (var reader = new StreamReader(stream))
+                {
+                    string responseText = await reader.ReadToEndAsync();
+
+                    Console.WriteLine($"Response received for tempolar {tempolar}. Length: {response.ContentLength}, Type: {response.ContentType}");
+
+                    var jsonResponse = JObject.Parse(responseText);
+                    Console.WriteLine($"Response data: {jsonResponse}");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error in HttpResponse: " + ex.Message);
-                return null;
             }
-
         }
 
         // Получает Bearer токен для аутентификации
